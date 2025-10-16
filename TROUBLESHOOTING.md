@@ -192,7 +192,7 @@ kubectl describe pod -n wikijs <pod-name> | grep -A10 Limits
 kubectl get pod -n wikijs <pod-name> -o jsonpath='{.spec.containers[0].image}'
 
 # Verify internet connectivity from node
-kubectl run -it --rm debug --image=busybox --restart=Never -- wget -O- https://ghcr.io
+kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- curl -I https://ghcr.io
 
 # Check NAT Gateway
 aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=$(terraform output -raw vpc_id)"
@@ -241,6 +241,8 @@ aws ec2 describe-security-group-rules \
 terraform output cluster_security_group_id
 
 # Update RDS security group if needed
+# NOTE: Avoid manual changes - update Terraform configuration instead to prevent state drift
+# Only use this for emergency troubleshooting
 aws ec2 authorize-security-group-ingress \
   --group-id $(terraform output -raw rds_security_group_id) \
   --protocol tcp \
@@ -288,7 +290,7 @@ aws ec2 describe-route-tables \
   --query 'RouteTables[*].[RouteTableId,Routes]'
 
 # Test internet from pod
-kubectl run -it --rm debug --image=busybox --restart=Never -- wget -O- https://google.com
+kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- curl -I https://google.com
 ```
 
 ### DNS Resolution Failing
@@ -304,7 +306,7 @@ kubectl get pods -n kube-system -l k8s-app=kube-dns
 kubectl logs -n kube-system -l k8s-app=kube-dns
 
 # Test DNS resolution
-kubectl run -it --rm debug --image=busybox --restart=Never -- nslookup google.com
+kubectl run -it --rm debug --image=busybox:1.36 --restart=Never -- nslookup google.com
 
 # Restart CoreDNS if needed
 kubectl rollout restart deployment/coredns -n kube-system
@@ -397,10 +399,17 @@ kubectl describe pod -n wikijs <pod-name> | grep -A5 Readiness
 
 **Solution**:
 1. Reset admin password via database:
-```sql
-psql -h <db-endpoint> -U wikijs -d wikijs
+```bash
+# Generate bcrypt hash of new password
+# You can use: https://bcrypt-generator.com/ or install bcrypt-tool
+# Example: bcrypt-tool hash "YourNewPassword123"
 
-UPDATE users SET password = '$2a$12$...' WHERE email = 'admin@example.com';
+psql -h <db-endpoint> -U wikijs -d wikijs
+```
+```sql
+-- Replace with actual bcrypt hash generated above (starts with $2a$ or $2b$)
+-- Example hash format: $2a$12$abcdefghijklmnopqrstuvwxyz123456789
+UPDATE users SET password = '<bcrypt-hash-here>' WHERE email = 'admin@example.com';
 ```
 
 2. Check Wiki.js logs:
@@ -513,6 +522,9 @@ psql -h <db-endpoint> -U wikijs -d wikijs
 -- Enable query logging
 ALTER SYSTEM SET log_min_duration_statement = 1000;
 SELECT pg_reload_conf();
+
+-- Enable pg_stat_statements extension if not already enabled
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
 -- View slow queries
 SELECT query, calls, mean_exec_time

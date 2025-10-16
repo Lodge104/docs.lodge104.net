@@ -21,8 +21,10 @@ cp terraform.tfvars.example terraform.tfvars
 
 Edit `terraform.tfvars`:
 ```hcl
-db_password        = "YourSecurePassword123!"
-wikijs_admin_email = "admin@example.com"
+# Replace with a strong password (min 12 characters, include uppercase, lowercase, numbers, symbols)
+db_password        = "CHANGE_ME_SECURE_PASSWORD"
+# Replace with your actual email address
+wikijs_admin_email = "your-email@your-domain.com"
 ```
 
 ### 2. Initialize Terraform
