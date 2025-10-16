@@ -21,9 +21,6 @@ This document describes the architecture of the Wiki.js deployment on AWS EKS.
                                     │  │  ┌─────────────────────────────┐  │  │
                                     │  │  │  Public Subnet (10.0.0.0/24) │  │  │
                                     │  │  │  ┌──────────────────────┐   │  │  │
-                                    │  │  │  │  NAT Gateway         │   │  │  │
-                                    │  │  │  └──────────────────────┘   │  │  │
-                                    │  │  │  ┌──────────────────────┐   │  │  │
                                     │  │  │  │  Internet Gateway    │   │  │  │
                                     │  │  │  └──────────────────────┘   │  │  │
                                     │  │  └─────────────────────────────┘  │  │
@@ -61,21 +58,18 @@ This document describes the architecture of the Wiki.js deployment on AWS EKS.
 
 #### Subnets
 - **Public Subnets**: 2 subnets across 2 AZs (10.0.0.0/24, 10.0.1.0/24)
-  - Used for: NAT Gateway, Load Balancers
+  - Used for: Load Balancers
   - Internet access: Via Internet Gateway
   
 - **Private Subnets**: 2 subnets across 2 AZs (10.0.2.0/24, 10.0.3.0/24)
-  - Used for: EKS nodes, RDS database
-  - Internet access: Via NAT Gateway
+  - Used for: Fargate pods, Aurora database
+  - Internet access: Via Internet Gateway (direct, no NAT Gateway for cost optimization)
+  - Note: Subnets use public IP addresses for direct internet access
 
 #### Internet Gateway
-- Provides internet access to public subnets
+- Provides internet access to all subnets
 - Attached to VPC
-
-#### NAT Gateway
-- Located in public subnet
-- Provides outbound internet access for private subnets
-- Single gateway (cost optimization)
+- Used by both public and private subnets
 
 #### Route Tables
 - **Public Route Table**
@@ -83,7 +77,7 @@ This document describes the architecture of the Wiki.js deployment on AWS EKS.
   - Associated with public subnets
 
 - **Private Route Table**
-  - Default route (0.0.0.0/0) → NAT Gateway
+  - Default route (0.0.0.0/0) → Internet Gateway (no NAT Gateway for cost savings)
   - Associated with private subnets
 
 ### 2. Compute Layer
@@ -209,36 +203,39 @@ Contains database connection credentials:
 
 ### External Access Flow
 1. Worker node needs to pull container images
-2. Traffic routes through NAT Gateway
-3. NAT Gateway forwards to Internet Gateway
-4. Node downloads image from ghcr.io
-5. Connection established, image pulled
+### External Access Flow
+1. Fargate pod needs to pull container images
+2. Traffic routes directly through Internet Gateway (no NAT Gateway)
+3. Pod downloads image from ghcr.io
+4. Connection established, image pulled
+
+**Note**: This configuration uses direct internet access without NAT Gateway to reduce costs by $32/month.
 
 ## High Availability Considerations
 
 ### Current Setup (Cost-Optimized)
-- **Single Node**: If node fails, service is down until new node launches
+- **Serverless Fargate**: Pods are automatically replaced if they fail
 - **Single AZ Database**: If AZ fails, database is unavailable
-- **Single NAT Gateway**: If NAT fails, nodes lose internet access
+- **No NAT Gateway**: Direct internet access through Internet Gateway (cost optimization)
 
 ### Improvements for Production
-1. **Multiple Nodes**: 
+1. **Multiple Pod Replicas**: 
    ```hcl
-   desired_capacity = 2
-   min_capacity     = 2
+   # In deployment
+   replicas = 2
    ```
 
-2. **Multi-AZ RDS**:
+2. **Multi-AZ Aurora**:
    ```hcl
    multi_az = true
    ```
 
-3. **Multiple NAT Gateways**:
+3. **Add NAT Gateway** (if needed for production):
    ```hcl
-   # Create NAT Gateway in each public subnet
+   # Create NAT Gateway for enhanced security
    resource "aws_nat_gateway" "main" {
-     count = 2
-     # ...
+     allocation_id = aws_eip.nat.id
+     subnet_id     = aws_subnet.public[0].id
    }
    ```
 
@@ -341,17 +338,17 @@ See [COST_OPTIMIZATION.md](./COST_OPTIMIZATION.md) for detailed strategies.
 EKS Control Plane:         $73.00
 Fargate Compute:       $15-20.00
 Aurora Serverless v2:  $20-30.00
-NAT Gateway:               $32.00
 Storage & Transfer:         $5.00
 ─────────────────────────────────
-Total:              ~$145-160.00/month
+Total:              ~$113-128.00/month
 ```
 
-**Note**: Serverless architecture provides:
-- Pay-per-use pricing for compute and database
+**Note**: This cost-optimized configuration:
+- Uses direct internet access (no NAT Gateway, saving $32/month)
+- Serverless architecture with pay-per-use pricing
 - Automatic scaling based on demand
 - No idle resource costs
-- Can scale down to ~$100/month with optimizations
+- Total savings of ~$32/month compared to NAT Gateway setup
 
 ## Security Best Practices
 
@@ -359,7 +356,9 @@ Total:              ~$145-160.00/month
 - ✅ Private subnets for compute and database
 - ✅ Security groups with minimal access
 - ✅ No public database access
+- ⚠️ Note: Direct internet access without NAT Gateway (acceptable for cost-optimized deployments)
 - ⚠️ Consider: VPC Flow Logs for monitoring
+- ⚠️ Consider: Add NAT Gateway for production environments requiring enhanced network isolation
 
 ### Application Security
 - ✅ Secrets stored in Kubernetes Secrets (encrypted at rest)

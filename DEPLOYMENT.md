@@ -91,15 +91,14 @@ Type `yes` when prompted. Deployment takes approximately 15-20 minutes.
    - 2 public subnets
    - 2 private subnets
    - Internet Gateway
-   - NAT Gateway
-   - Route tables
+   - Route tables (no NAT Gateway for cost optimization)
 
 2. **EKS Cluster** (~10 minutes)
    - EKS control plane
    - IAM roles and policies
    - Security groups
 
-3. **EKS Node Group** (~5 minutes)
+3. **Fargate Profiles** (~5 minutes)
    - EC2 instance (t3.small)
    - Auto-scaling configuration
 

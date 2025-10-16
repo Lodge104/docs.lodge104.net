@@ -108,16 +108,17 @@ Monthly costs (approximate, as of 2024):
 - **Fargate Compute**: ~$15-20/month (pay per vCPU/GB used)
 - **Aurora Serverless v2**: ~$20-30/month (scales 0.5-1 ACU)
 - **Data Transfer & Storage**: ~$5-10/month
-- **NAT Gateway**: ~$32/month
 
-**Total**: ~$145-165/month (can scale to ~$100/month with optimizations)
+**Total**: ~$113-133/month (optimized for cost without NAT Gateway)
+
+**Note**: This configuration uses direct internet access (no NAT Gateway) to minimize costs. All subnets route through the Internet Gateway.
 
 ### Cost Optimization Tips
 
 1. **Scale Aurora Capacity**: Reduce min capacity to 0.5 ACU for lower baseline cost
-2. **Remove NAT Gateway**: For dev/test, use public subnets (saves $32/month)
-3. **Optimize Fargate Usage**: Monitor and right-size pod resource requests
-4. **Stop Non-Production**: For dev/test, delete Fargate pods when not in use
+2. **Optimize Fargate Usage**: Monitor and right-size pod resource requests
+3. **Stop Non-Production**: For dev/test, delete Fargate pods when not in use
+4. **Use VPC Endpoints**: Add VPC endpoints for AWS services to reduce data transfer costs
 
 ## Configuration Variables
 

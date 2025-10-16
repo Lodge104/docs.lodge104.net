@@ -191,15 +191,14 @@ kubectl describe pod -n wikijs <pod-name> | grep -A10 Limits
 # Check image name
 kubectl get pod -n wikijs <pod-name> -o jsonpath='{.spec.containers[0].image}'
 
-# Verify internet connectivity from node
+# Verify internet connectivity from pod
 kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- curl -I https://ghcr.io
 
-# Check NAT Gateway
-aws ec2 describe-nat-gateways --filter "Name=vpc-id,Values=$(terraform output -raw vpc_id)"
-
-# Verify route table
+# Verify route table (should route through Internet Gateway, no NAT Gateway)
 aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$(terraform output -raw vpc_id)"
 ```
+
+**Note**: This configuration does not use NAT Gateway for cost optimization. All subnets route directly through the Internet Gateway.
 
 ## Database Issues
 
@@ -274,24 +273,26 @@ AND state_change < now() - interval '10 minutes';
 
 ## Networking Issues
 
-### NAT Gateway Not Working
+### Internet Access Issues
 
-**Symptom**: Nodes cannot access internet
+**Symptom**: Pods cannot access internet
 
 **Solution**:
 ```bash
-# Check NAT Gateway status
-aws ec2 describe-nat-gateways \
-  --filter "Name=vpc-id,Values=$(terraform output -raw vpc_id)"
-
-# Verify route table
+# Verify route table (should route through Internet Gateway)
 aws ec2 describe-route-tables \
   --filters "Name=vpc-id,Values=$(terraform output -raw vpc_id)" \
   --query 'RouteTables[*].[RouteTableId,Routes]'
 
 # Test internet from pod
 kubectl run -it --rm debug --image=curlimages/curl --restart=Never -- curl -I https://google.com
+
+# Verify Internet Gateway is attached
+aws ec2 describe-internet-gateways \
+  --filters "Name=attachment.vpc-id,Values=$(terraform output -raw vpc_id)"
 ```
+
+**Note**: This configuration uses direct internet access through the Internet Gateway (no NAT Gateway) for cost optimization.
 
 ### DNS Resolution Failing
 

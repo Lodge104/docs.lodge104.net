@@ -45,12 +45,13 @@ resource "aws_subnet" "public" {
   }
 }
 
-# Private Subnets
+# Private Subnets (using public IPs for internet access without NAT Gateway)
 resource "aws_subnet" "private" {
-  count             = 2
-  vpc_id            = aws_vpc.main.id
-  cidr_block        = cidrsubnet(var.vpc_cidr, 8, count.index + 2)
-  availability_zone = data.aws_availability_zones.available.names[count.index]
+  count                   = 2
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = cidrsubnet(var.vpc_cidr, 8, count.index + 2)
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  map_public_ip_on_launch = true
 
   tags = {
     Name                                        = "${var.cluster_name}-private-${count.index + 1}"
@@ -58,29 +59,6 @@ resource "aws_subnet" "private" {
     "kubernetes.io/role/internal-elb"           = "1"
     "kubernetes.io/cluster/${var.cluster_name}" = "shared"
   }
-}
-
-# NAT Gateway EIP
-resource "aws_eip" "nat" {
-  domain = "vpc"
-
-  tags = {
-    Name        = "${var.cluster_name}-nat-eip"
-    Environment = var.environment
-  }
-}
-
-# NAT Gateway
-resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
-
-  tags = {
-    Name        = "${var.cluster_name}-nat"
-    Environment = var.environment
-  }
-
-  depends_on = [aws_internet_gateway.main]
 }
 
 # Public Route Table
@@ -98,13 +76,13 @@ resource "aws_route_table" "public" {
   }
 }
 
-# Private Route Table
+# Private Route Table (using Internet Gateway directly, no NAT Gateway for cost savings)
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
   route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
   }
 
   tags = {

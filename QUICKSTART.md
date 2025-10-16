@@ -64,15 +64,17 @@ kubectl get svc wikijs -n wikijs
 - ✅ EKS Kubernetes cluster (serverless)
 - ✅ Fargate profiles for Wiki.js and CoreDNS
 - ✅ Aurora PostgreSQL Serverless v2 (auto-scaling)
-- ✅ VPC with public/private subnets
+- ✅ VPC with public/private subnets (direct internet access, no NAT Gateway)
 - ✅ Application Load Balancer
 - ✅ Wiki.js application
 
 ## Estimated Cost
 
-**~$145-165/month** (can be reduced to ~$100/month with optimizations)
+**~$113-133/month** (optimized without NAT Gateway)
 
-See [COST_OPTIMIZATION.md](./COST_OPTIMIZATION.md) for cost-saving strategies.
+This configuration eliminates the NAT Gateway ($32/month savings) by using direct internet access for cost optimization.
+
+See [COST_OPTIMIZATION.md](./COST_OPTIMIZATION.md) for additional cost-saving strategies.
 
 ## Next Steps
 
