@@ -4,8 +4,8 @@ This repository contains Terraform infrastructure as code (IaC) to deploy [Wiki.
 
 ## Architecture
 
-- **EKS Cluster**: Single-node Kubernetes cluster (t3.small instance)
-- **Database**: PostgreSQL RDS (db.t3.micro instance)
+- **EKS Cluster**: Kubernetes cluster with Fargate for serverless compute
+- **Database**: Aurora PostgreSQL Serverless v2 (auto-scaling 0.5-1 ACU)
 - **Networking**: VPC with public/private subnets across 2 availability zones
 - **Load Balancer**: AWS Application Load Balancer for Wiki.js access
 
@@ -105,19 +105,19 @@ Open the LoadBalancer URL in your browser and complete the Wiki.js setup wizard.
 Monthly costs (approximate, as of 2024):
 
 - **EKS Cluster Control Plane**: ~$73/month
-- **EC2 Instance (t3.small)**: ~$15/month
-- **RDS PostgreSQL (db.t3.micro)**: ~$15/month
+- **Fargate Compute**: ~$15-20/month (pay per vCPU/GB used)
+- **Aurora Serverless v2**: ~$20-30/month (scales 0.5-1 ACU)
 - **Data Transfer & Storage**: ~$5-10/month
 - **NAT Gateway**: ~$32/month
 
-**Total**: ~$140-145/month
+**Total**: ~$145-165/month (can scale to ~$100/month with optimizations)
 
 ### Cost Optimization Tips
 
-1. **Use Spot Instances**: Modify node group to use spot instances (50-70% savings)
-2. **Fargate**: Consider EKS Fargate for even more cost-effective compute
-3. **Reserved Instances**: For long-term usage, purchase reserved instances
-4. **Stop Non-Production**: For dev/test, stop resources when not in use
+1. **Scale Aurora Capacity**: Reduce min capacity to 0.5 ACU for lower baseline cost
+2. **Remove NAT Gateway**: For dev/test, use public subnets (saves $32/month)
+3. **Optimize Fargate Usage**: Monitor and right-size pod resource requests
+4. **Stop Non-Production**: For dev/test, delete Fargate pods when not in use
 
 ## Configuration Variables
 
@@ -128,12 +128,8 @@ Monthly costs (approximate, as of 2024):
 | `environment` | Environment name | production | No |
 | `db_password` | PostgreSQL password | - | Yes |
 | `wikijs_admin_email` | Admin email | - | Yes |
-| `node_instance_type` | EC2 instance type | t3.small | No |
-| `desired_capacity` | Desired nodes | 1 | No |
-| `min_capacity` | Minimum nodes | 1 | No |
-| `max_capacity` | Maximum nodes | 2 | No |
-| `db_instance_class` | RDS instance class | db.t3.micro | No |
-| `db_allocated_storage` | RDS storage (GB) | 20 | No |
+| `aurora_min_capacity` | Min Aurora ACU | 0.5 | No |
+| `aurora_max_capacity` | Max Aurora ACU | 1.0 | No |
 
 ## Maintenance
 

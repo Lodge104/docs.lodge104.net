@@ -33,20 +33,17 @@ This document describes the architecture of the Wiki.js deployment on AWS EKS.
                                     │  │  │                              │  │  │
                                     │  │  │  ┌────────────────────────┐ │  │  │
                                     │  │  │  │  EKS Cluster           │ │  │  │
+                                    │  │  │  │  (Fargate)             │ │  │  │
                                     │  │  │  │                        │ │  │  │
-                                    │  │  │  │  ┌──────────────────┐ │ │  │  │
-                                    │  │  │  │  │  Worker Node     │ │ │  │  │
-                                    │  │  │  │  │  (t3.small)      │ │ │  │  │
-                                    │  │  │  │  │                  │ │ │  │  │
-                                    │  │  │  │  │  ┌────────────┐ │ │ │  │  │
-                                    │  │  │  │  │  │ Wiki.js Pod│ │ │ │  │  │
-                                    │  │  │  │  │  └────────────┘ │ │ │  │  │
-                                    │  │  │  │  └──────────────────┘ │ │  │  │
+                                    │  │  │  │  ┌────────────┐        │ │  │  │
+                                    │  │  │  │  │ Wiki.js Pod│        │ │  │  │
+                                    │  │  │  │  │ (Fargate)  │        │ │  │  │
+                                    │  │  │  │  └────────────┘        │ │  │  │
                                     │  │  │  └────────────────────────┘ │  │  │
                                     │  │  │                              │  │  │
                                     │  │  │  ┌────────────────────────┐ │  │  │
-                                    │  │  │  │  RDS PostgreSQL        │ │  │  │
-                                    │  │  │  │  (db.t3.micro)         │ │  │  │
+                                    │  │  │  │ Aurora Serverless v2   │ │  │  │
+                                    │  │  │  │ PostgreSQL             │ │  │  │
                                     │  │  │  └────────────────────────┘ │  │  │
                                     │  │  └─────────────────────────────┘  │  │
                                     │  └────────────────────────────────────┘  │
@@ -98,34 +95,36 @@ This document describes the architecture of the Wiki.js deployment on AWS EKS.
   - Public endpoint: Enabled (for kubectl access)
   - Private endpoint: Enabled (for pod-to-API communication)
 
-#### Node Group
-- **Instance Type**: t3.small (2 vCPU, 2 GiB RAM)
-- **Capacity**:
-  - Desired: 1 node
-  - Minimum: 1 node
-  - Maximum: 2 nodes (for auto-scaling)
-- **Subnet Placement**: Private subnets
-- **AMI**: AWS EKS-optimized AMI (automatically managed)
+#### Fargate Profiles
+- **Wiki.js Profile**: 
+  - Target namespace: wikijs
+  - Subnet placement: Private subnets
+  - On-demand, serverless compute
+  
+- **CoreDNS Profile**:
+  - Target namespace: kube-system
+  - Labels: k8s-app=kube-dns
+  - Required for DNS resolution
 
 #### IAM Roles
 - **EKS Cluster Role**
   - Policies: AmazonEKSClusterPolicy, AmazonEKSVPCResourceController
   - Used by: EKS control plane
 
-- **Node Role**
-  - Policies: AmazonEKSWorkerNodePolicy, AmazonEKS_CNI_Policy, AmazonEC2ContainerRegistryReadOnly
-  - Used by: Worker nodes
+- **Fargate Pod Execution Role**
+  - Policies: AmazonEKSFargatePodExecutionRolePolicy
+  - Used by: Fargate pods
 
 ### 3. Database Layer
 
-#### RDS PostgreSQL
-- **Engine**: PostgreSQL 15.4
-- **Instance Class**: db.t3.micro (2 vCPU, 1 GiB RAM)
-- **Storage**:
-  - Type: GP2 (General Purpose SSD)
-  - Size: 20 GB
-  - Auto-scaling: Disabled (can be enabled)
-- **Deployment**: Single-AZ (for cost optimization)
+#### Aurora PostgreSQL Serverless v2
+- **Engine**: Aurora PostgreSQL 15.4
+- **Capacity**:
+  - Type: Serverless v2 (auto-scaling)
+  - Minimum: 0.5 ACU (1 GB RAM)
+  - Maximum: 1.0 ACU (2 GB RAM)
+  - Scales automatically based on load
+- **Deployment**: Single instance (can be Multi-AZ)
 - **Backup**: Disabled (should be enabled for production)
 - **Subnet Group**: Private subnets
 - **Public Access**: Disabled
@@ -339,14 +338,20 @@ See [COST_OPTIMIZATION.md](./COST_OPTIMIZATION.md) for detailed strategies.
 
 ### Current Monthly Cost Breakdown
 ```
-EKS Control Plane:     $73.00
-EC2 t3.small:          $15.00
-RDS db.t3.micro:       $15.00
-NAT Gateway:           $32.00
-Storage & Transfer:     $5.00
-─────────────────────────────
-Total:               ~$140.00/month
+EKS Control Plane:         $73.00
+Fargate Compute:       $15-20.00
+Aurora Serverless v2:  $20-30.00
+NAT Gateway:               $32.00
+Storage & Transfer:         $5.00
+─────────────────────────────────
+Total:              ~$145-160.00/month
 ```
+
+**Note**: Serverless architecture provides:
+- Pay-per-use pricing for compute and database
+- Automatic scaling based on demand
+- No idle resource costs
+- Can scale down to ~$100/month with optimizations
 
 ## Security Best Practices
 

@@ -33,40 +33,16 @@ variable "vpc_cidr" {
   default     = "10.0.0.0/16"
 }
 
-variable "node_instance_type" {
-  description = "EC2 instance type for EKS nodes"
-  type        = string
-  default     = "t3.small"
-}
-
-variable "desired_capacity" {
-  description = "Desired number of worker nodes"
+variable "aurora_min_capacity" {
+  description = "Minimum Aurora Serverless v2 capacity units (0.5 = 1GB RAM)"
   type        = number
-  default     = 1
+  default     = 0.5
 }
 
-variable "min_capacity" {
-  description = "Minimum number of worker nodes"
+variable "aurora_max_capacity" {
+  description = "Maximum Aurora Serverless v2 capacity units (1 = 2GB RAM)"
   type        = number
-  default     = 1
-}
-
-variable "max_capacity" {
-  description = "Maximum number of worker nodes"
-  type        = number
-  default     = 2
-}
-
-variable "db_instance_class" {
-  description = "RDS instance class"
-  type        = string
-  default     = "db.t3.micro"
-}
-
-variable "db_allocated_storage" {
-  description = "Allocated storage for RDS in GB"
-  type        = number
-  default     = 20
+  default     = 1.0
 }
 
 variable "db_name" {

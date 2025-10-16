@@ -19,13 +19,13 @@ output "region" {
 }
 
 output "db_endpoint" {
-  description = "RDS instance endpoint"
-  value       = aws_db_instance.wikijs.endpoint
+  description = "Aurora cluster endpoint"
+  value       = aws_rds_cluster.wikijs.endpoint
 }
 
 output "db_name" {
   description = "Database name"
-  value       = aws_db_instance.wikijs.db_name
+  value       = aws_rds_cluster.wikijs.database_name
 }
 
 output "configure_kubectl" {

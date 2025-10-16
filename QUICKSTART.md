@@ -61,16 +61,16 @@ kubectl get svc wikijs -n wikijs
 
 ## What Gets Created?
 
-- ✅ EKS Kubernetes cluster
-- ✅ Single t3.small worker node
-- ✅ PostgreSQL database (db.t3.micro)
+- ✅ EKS Kubernetes cluster (serverless)
+- ✅ Fargate profiles for Wiki.js and CoreDNS
+- ✅ Aurora PostgreSQL Serverless v2 (auto-scaling)
 - ✅ VPC with public/private subnets
 - ✅ Application Load Balancer
 - ✅ Wiki.js application
 
 ## Estimated Cost
 
-**~$140/month** (can be reduced to ~$40/month with optimizations)
+**~$145-165/month** (can be reduced to ~$100/month with optimizations)
 
 See [COST_OPTIMIZATION.md](./COST_OPTIMIZATION.md) for cost-saving strategies.
 

@@ -199,9 +199,9 @@ resource "aws_eks_cluster" "main" {
   }
 }
 
-# EKS Node IAM Role
-resource "aws_iam_role" "eks_node" {
-  name = "${var.cluster_name}-eks-node-role"
+# Fargate Pod Execution IAM Role
+resource "aws_iam_role" "fargate_pod_execution" {
+  name = "${var.cluster_name}-fargate-pod-execution-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -209,60 +209,68 @@ resource "aws_iam_role" "eks_node" {
       Action = "sts:AssumeRole"
       Effect = "Allow"
       Principal = {
-        Service = "ec2.amazonaws.com"
+        Service = "eks-fargate-pods.amazonaws.com"
       }
     }]
   })
 
   tags = {
-    Name        = "${var.cluster_name}-eks-node-role"
+    Name        = "${var.cluster_name}-fargate-pod-execution-role"
     Environment = var.environment
   }
 }
 
-resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-  role       = aws_iam_role.eks_node.name
+resource "aws_iam_role_policy_attachment" "fargate_pod_execution_policy" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSFargatePodExecutionRolePolicy"
+  role       = aws_iam_role.fargate_pod_execution.arn
 }
 
-resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-  role       = aws_iam_role.eks_node.name
-}
+# Fargate Profile for Wiki.js
+resource "aws_eks_fargate_profile" "wikijs" {
+  cluster_name           = aws_eks_cluster.main.name
+  fargate_profile_name   = "wikijs-profile"
+  pod_execution_role_arn = aws_iam_role.fargate_pod_execution.arn
+  subnet_ids             = aws_subnet.private[*].id
 
-resource "aws_iam_role_policy_attachment" "eks_container_registry_policy" {
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
-  role       = aws_iam_role.eks_node.name
-}
-
-# EKS Node Group
-resource "aws_eks_node_group" "main" {
-  cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "${var.cluster_name}-node-group"
-  node_role_arn   = aws_iam_role.eks_node.arn
-  subnet_ids      = aws_subnet.private[*].id
-
-  scaling_config {
-    desired_size = var.desired_capacity
-    max_size     = var.max_capacity
-    min_size     = var.min_capacity
+  selector {
+    namespace = "wikijs"
   }
-
-  instance_types = [var.node_instance_type]
-
-  depends_on = [
-    aws_iam_role_policy_attachment.eks_worker_node_policy,
-    aws_iam_role_policy_attachment.eks_cni_policy,
-    aws_iam_role_policy_attachment.eks_container_registry_policy,
-  ]
 
   tags = {
-    Name        = "${var.cluster_name}-node-group"
+    Name        = "${var.cluster_name}-wikijs-fargate-profile"
     Environment = var.environment
   }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.fargate_pod_execution_policy,
+  ]
 }
 
-# RDS Subnet Group
+# Fargate Profile for CoreDNS
+resource "aws_eks_fargate_profile" "coredns" {
+  cluster_name           = aws_eks_cluster.main.name
+  fargate_profile_name   = "coredns-profile"
+  pod_execution_role_arn = aws_iam_role.fargate_pod_execution.arn
+  subnet_ids             = aws_subnet.private[*].id
+
+  selector {
+    namespace = "kube-system"
+    labels = {
+      k8s-app = "kube-dns"
+    }
+  }
+
+  tags = {
+    Name        = "${var.cluster_name}-coredns-fargate-profile"
+    Environment = var.environment
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.fargate_pod_execution_policy,
+  ]
+}
+
+# Aurora Subnet Group
 resource "aws_db_subnet_group" "wikijs" {
   name       = "${var.cluster_name}-db-subnet"
   subnet_ids = aws_subnet.private[*].id
@@ -273,10 +281,10 @@ resource "aws_db_subnet_group" "wikijs" {
   }
 }
 
-# RDS Security Group
-resource "aws_security_group" "rds" {
-  name        = "${var.cluster_name}-rds-sg"
-  description = "Security group for RDS PostgreSQL"
+# Aurora Security Group
+resource "aws_security_group" "aurora" {
+  name        = "${var.cluster_name}-aurora-sg"
+  description = "Security group for Aurora PostgreSQL"
   vpc_id      = aws_vpc.main.id
 
   ingress {
@@ -294,29 +302,48 @@ resource "aws_security_group" "rds" {
   }
 
   tags = {
-    Name        = "${var.cluster_name}-rds-sg"
+    Name        = "${var.cluster_name}-aurora-sg"
     Environment = var.environment
   }
 }
 
-# RDS PostgreSQL Instance
-resource "aws_db_instance" "wikijs" {
-  identifier             = "${var.cluster_name}-db"
-  engine                 = "postgres"
-  engine_version         = "15.4"
-  instance_class         = var.db_instance_class
-  allocated_storage      = var.db_allocated_storage
-  storage_type           = "gp2"
-  db_name                = var.db_name
-  username               = var.db_username
-  password               = var.db_password
-  skip_final_snapshot    = true
-  publicly_accessible    = false
-  db_subnet_group_name   = aws_db_subnet_group.wikijs.name
-  vpc_security_group_ids = [aws_security_group.rds.id]
+# Aurora PostgreSQL Serverless v2 Cluster
+resource "aws_rds_cluster" "wikijs" {
+  cluster_identifier      = "${var.cluster_name}-aurora-cluster"
+  engine                  = "aurora-postgresql"
+  engine_mode             = "provisioned"
+  engine_version          = "15.4"
+  database_name           = var.db_name
+  master_username         = var.db_username
+  master_password         = var.db_password
+  db_subnet_group_name    = aws_db_subnet_group.wikijs.name
+  vpc_security_group_ids  = [aws_security_group.aurora.id]
+  skip_final_snapshot     = true
+  backup_retention_period = 7
+  preferred_backup_window = "03:00-04:00"
+
+  serverlessv2_scaling_configuration {
+    max_capacity = var.aurora_max_capacity
+    min_capacity = var.aurora_min_capacity
+  }
 
   tags = {
-    Name        = "${var.cluster_name}-db"
+    Name        = "${var.cluster_name}-aurora-cluster"
+    Environment = var.environment
+  }
+}
+
+# Aurora PostgreSQL Serverless v2 Instance
+resource "aws_rds_cluster_instance" "wikijs" {
+  cluster_identifier  = aws_rds_cluster.wikijs.id
+  identifier          = "${var.cluster_name}-aurora-instance"
+  instance_class      = "db.serverless"
+  engine              = aws_rds_cluster.wikijs.engine
+  engine_version      = aws_rds_cluster.wikijs.engine_version
+  publicly_accessible = false
+
+  tags = {
+    Name        = "${var.cluster_name}-aurora-instance"
     Environment = var.environment
   }
 }
@@ -338,7 +365,7 @@ resource "kubernetes_namespace" "wikijs" {
     name = "wikijs"
   }
 
-  depends_on = [aws_eks_node_group.main]
+  depends_on = [aws_eks_fargate_profile.wikijs]
 }
 
 # Create secret for database credentials
@@ -350,7 +377,7 @@ resource "kubernetes_secret" "wikijs_db" {
 
   data = {
     DB_TYPE = "postgres"
-    DB_HOST = aws_db_instance.wikijs.address
+    DB_HOST = aws_rds_cluster.wikijs.endpoint
     DB_PORT = "5432"
     DB_USER = var.db_username
     DB_PASS = var.db_password
@@ -490,7 +517,8 @@ resource "kubernetes_deployment" "wikijs" {
   }
 
   depends_on = [
-    aws_db_instance.wikijs,
+    aws_rds_cluster.wikijs,
+    aws_rds_cluster_instance.wikijs,
     kubernetes_secret.wikijs_db
   ]
 }
