@@ -1,0 +1,32 @@
+# AWS Region - us-east-1 is typically the cheapest
+aws_region = "us-east-1"
+
+# Environment
+environment = "dev"
+
+# Database configuration
+db_username = "postgres"
+
+# Aurora Serverless v2 capacity settings (ACUs)
+# These are the minimum values for maximum cost savings
+min_capacity = 0.5  # Minimum possible ACU
+max_capacity = 1.0  # Keep low for cost optimization
+
+# Lightsail container service access configuration (via VPC Peering)
+allow_lightsail_access = true   # Allow access from Amazon Lightsail containers
+publicly_accessible   = false  # Not needed with VPC Peering - more secure!
+
+# Lightsail CIDR blocks (via VPC Peering)
+# lightsail_cidr_blocks = [
+#   "172.26.0.0/16"   # Default Lightsail VPC CIDR range
+# ]
+
+# Note: VPC Peering must be enabled in your AWS region for Lightsail
+# See: https://docs.aws.amazon.com/lightsail/latest/userguide/lightsail-how-to-set-up-vpc-peering-with-aws-resources.html
+
+# To further reduce costs, consider:
+# - Setting max_capacity to 2.0 only if you need burst capacity
+# - Aurora Serverless v2 automatically scales down when not in use
+# - Backup retention is set to 1 day (minimum) to reduce storage costs
+# - Storage encryption is disabled to avoid additional charges
+# - Enhanced monitoring is disabled to avoid extra costs
