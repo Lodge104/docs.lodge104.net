@@ -55,3 +55,24 @@ output "security_group_id" {
   description = "Security group ID for the Aurora cluster"
   value       = aws_security_group.wiki_aurora_sg.id
 }
+
+output "security_features" {
+  description = "Security and monitoring features enabled"
+  value = {
+    storage_encrypted            = var.storage_encrypted
+    performance_insights_enabled = var.performance_insights_enabled
+    enhanced_monitoring_enabled  = var.enhanced_monitoring_interval > 0
+    cloudwatch_logs_enabled      = true
+  }
+}
+
+output "performance_insights_info" {
+  description = "Performance Insights configuration"
+  value = var.performance_insights_enabled ? {
+    enabled          = true
+    retention_period = var.performance_insights_retention_period
+    cost_note        = "7 days retention is free tier, longer retention incurs costs"
+    } : {
+    enabled = false
+  }
+}

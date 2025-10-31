@@ -101,6 +101,36 @@ resource "aws_security_group" "wiki_aurora_sg" {
   }
 }
 
+# IAM role for RDS enhanced monitoring
+resource "aws_iam_role" "rds_enhanced_monitoring" {
+  name = "rds-enhanced-monitoring-role-wiki"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "monitoring.rds.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "RDS Enhanced Monitoring Role"
+    Environment = var.environment
+    Project     = "wiki"
+  }
+}
+
+# Attach the AWS managed policy for RDS enhanced monitoring
+resource "aws_iam_role_policy_attachment" "rds_enhanced_monitoring" {
+  role       = aws_iam_role.rds_enhanced_monitoring.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonRDSEnhancedMonitoringRole"
+}
+
 # Aurora cluster parameter group for PostgreSQL
 resource "aws_rds_cluster_parameter_group" "wiki_cluster_pg" {
   family = "aurora-postgresql15"
@@ -144,14 +174,14 @@ resource "aws_rds_cluster" "wiki_cluster" {
   vpc_security_group_ids          = [aws_security_group.wiki_aurora_sg.id]
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.wiki_cluster_pg.name
 
-  # Cost optimization - disable expensive features
-  storage_encrypted     = false # Disable encryption to reduce costs
+  # Security features
+  storage_encrypted     = var.storage_encrypted
   copy_tags_to_snapshot = true
   deletion_protection   = false # Allow deletion to avoid accidental costs
   skip_final_snapshot   = true  # Skip final snapshot for cost savings
 
-  # Performance Insights disabled to save costs
-  enabled_cloudwatch_logs_exports = []
+  # Enhanced logging for better monitoring
+  enabled_cloudwatch_logs_exports = ["postgresql"]
 
   tags = {
     Name        = "Wiki Aurora Cluster"
@@ -171,11 +201,13 @@ resource "aws_rds_cluster_instance" "wiki_instance" {
   # Make publicly accessible for Lightsail container services
   publicly_accessible = var.publicly_accessible
 
-  # Cost optimization - disable monitoring
-  monitoring_interval = 0
+  # Enhanced monitoring
+  monitoring_interval = var.enhanced_monitoring_interval
+  monitoring_role_arn = var.enhanced_monitoring_interval > 0 ? aws_iam_role.rds_enhanced_monitoring.arn : null
 
-  # Performance Insights disabled
-  performance_insights_enabled = false
+  # Performance Insights
+  performance_insights_enabled          = var.performance_insights_enabled
+  performance_insights_retention_period = var.performance_insights_enabled ? var.performance_insights_retention_period : null
 
   tags = {
     Name        = "Wiki Aurora Instance"

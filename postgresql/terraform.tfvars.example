@@ -12,9 +12,22 @@ db_username = "postgres"
 min_capacity = 0.5  # Minimum possible ACU
 max_capacity = 1.0  # Keep low for cost optimization
 
-# Lightsail container service access configuration (via VPC Peering)
+# Lightsail container service access configuration
 allow_lightsail_access = true   # Allow access from Amazon Lightsail containers
-publicly_accessible   = false  # Not needed with VPC Peering - more secure!
+publicly_accessible   = false  # VPC peering allows private access
+
+# Security and monitoring features
+storage_encrypted                         = true  # Enable encryption at rest
+performance_insights_enabled              = true  # Enable Performance Insights
+performance_insights_retention_period     = 7     # 7 days (free tier)
+enhanced_monitoring_interval              = 60    # 1 minute intervals
+
+# Alternative CIDR blocks for Lightsail (optional override)
+# lightsail_cidr_blocks = [
+#   "172.26.0.0/16",  # Lightsail container services
+#   "52.46.0.0/18",   # AWS service ranges
+#   "3.0.0.0/16"      # Additional AWS ranges
+# ]
 
 # Lightsail CIDR blocks (via VPC Peering)
 # lightsail_cidr_blocks = [

@@ -1,25 +1,29 @@
-# Aurora Serverless v2 PostgreSQL Database - Cost Optimized
+# Aurora Serverless v2 PostgreSQL Database - Secure & Monitored
 
-This Terraform configuration creates an AWS Aurora Serverless v2 PostgreSQL database named "wiki" with maximum cost optimization.
+This Terraform configuration creates an AWS Aurora Serverless v2 PostgreSQL database named "wiki" with security and monitoring features enabled.
 
-## Cost Optimization Features
+## Key Features
 
 - **Minimum ACU Configuration**: 0.5-1.0 ACUs (Aurora Capacity Units)
 - **Auto-scaling**: Automatically scales down to zero when not in use
 - **Single Instance**: No read replicas to minimize costs
 - **Minimal Backup**: 1-day backup retention (minimum allowed)
-- **Default VPC**: Uses existing default VPC to avoid networking costs
-- **No Encryption**: Storage encryption disabled to reduce costs
-- **No Enhanced Monitoring**: Monitoring disabled to avoid extra charges
-- **No Performance Insights**: Disabled to save costs
+- **VPC Peering**: Secure access from Lightsail containers via VPC peering
+- **Encryption at Rest**: Storage encryption enabled for security
+- **Performance Insights**: 7-day retention (free tier) for performance monitoring
+- **Enhanced Monitoring**: 1-minute interval monitoring for detailed metrics
+- **CloudWatch Logs**: PostgreSQL logs exported to CloudWatch
 
 ## Estimated Costs
 
-- **Minimum**: ~$6-10/month when database is mostly idle
-- **Maximum**: ~$15-25/month under light usage
 - **Aurora Serverless v2**: $0.50 per ACU per hour (only when active)
-- **Storage**: $0.10 per GB per month for data storage
+- **Storage**: $0.10 per GB per month for data storage (encrypted)
 - **Backup**: $0.021 per GB per month for backup storage (1 day retention)
+- **Performance Insights**: Free for 7-day retention
+- **Enhanced Monitoring**: ~$2.50/month for 1-minute intervals
+- **CloudWatch Logs**: ~$0.50/GB ingested and stored
+
+**Total Estimated**: ~$10-30/month depending on usage and data size
 
 ## Prerequisites
 

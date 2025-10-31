@@ -43,7 +43,31 @@ variable "lightsail_cidr_blocks" {
 }
 
 variable "publicly_accessible" {
-  description = "Make the database publicly accessible (not needed with VPC Peering)"
+  description = "Make the database publicly accessible (required for Lightsail access)"
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "storage_encrypted" {
+  description = "Enable encryption at rest for the Aurora cluster"
+  type        = bool
+  default     = true
+}
+
+variable "performance_insights_enabled" {
+  description = "Enable Performance Insights for the Aurora instance"
+  type        = bool
+  default     = true
+}
+
+variable "performance_insights_retention_period" {
+  description = "Performance Insights retention period in days (7 days is free tier)"
+  type        = number
+  default     = 7
+}
+
+variable "enhanced_monitoring_interval" {
+  description = "Enhanced monitoring interval in seconds (0 = disabled, 60 = 1 minute)"
+  type        = number
+  default     = 60
 }
